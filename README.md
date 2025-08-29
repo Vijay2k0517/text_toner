@@ -1,4 +1,4 @@
-📝#Text Toner
+📝Text Toner
 
 Text Toner is a smart text analysis and tone checking tool powered by Python (FastAPI/Flask) and Machine Learning.
 It helps users analyze the tone of their messages (formal, casual, polite, assertive, etc.) and suggests improvements to match the intended communication style.
