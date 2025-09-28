@@ -16,6 +16,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
+  bool _showHistory = false;
 
   @override
   void initState() {
@@ -53,78 +54,84 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          // Custom App Bar with gradient
-          _buildAppBar(),
-          
-          // Chat messages area
-          Expanded(
-            child: Consumer<ChatProvider>(
-              builder: (context, chatProvider, child) {
-                // Scroll to bottom when new messages are added
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _scrollToBottom();
-                });
+          Column(
+            children: [
+              // Custom App Bar with gradient
+              _buildAppBar(),
+              
+              // Chat messages area
+              Expanded(
+                child: Consumer<ChatProvider>(
+                  builder: (context, chatProvider, child) {
+                    // Scroll to bottom when new messages are added
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollToBottom();
+                    });
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: chatProvider.messages.length + (chatProvider.isTyping ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index < chatProvider.messages.length) {
-                      final message = chatProvider.messages[index];
-                      return MessageBubble(
-                        message: message,
-                        showAvatar: _shouldShowAvatar(chatProvider.messages, index),
-                      );
-                    } else {
-                      // Typing indicator
-                      return MessageBubble(
-                        message: Message(
-                          id: 'typing',
-                          text: '',
-                          type: MessageType.typing,
-                          timestamp: DateTime.now(),
-                          isTyping: true,
-                        ),
-                        showAvatar: true,
-                      );
-                    }
-                  },
-                );
-              },
-            ),
-          ),
-          
-          // Input field
-          Consumer<ChatProvider>(
-            builder: (context, chatProvider, child) {
-              return ChatInputField(
-                onSendMessage: (text) async {
-                  final error = await chatProvider.sendMessageToBackend(text);
-                  if (error != null && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(error),
-                        duration: const Duration(seconds: 3),
-                      ),
+                    return ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: chatProvider.messages.length + (chatProvider.isTyping ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index < chatProvider.messages.length) {
+                          final message = chatProvider.messages[index];
+                          return MessageBubble(
+                            message: message,
+                            showAvatar: _shouldShowAvatar(chatProvider.messages, index),
+                          );
+                        } else {
+                          // Typing indicator
+                          return MessageBubble(
+                            message: Message(
+                              id: 'typing',
+                              text: '',
+                              type: MessageType.typing,
+                              timestamp: DateTime.now(),
+                              isTyping: true,
+                            ),
+                            showAvatar: true,
+                          );
+                        }
+                      },
                     );
-                  }
-                },
-                onVoiceInput: () {
-                  // TODO: Implement voice input functionality
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Voice input coming soon!'),
-                      duration: Duration(seconds: 2),
-                    ),
+                  },
+                ),
+              ),
+              
+              // Input field
+              Consumer<ChatProvider>(
+                builder: (context, chatProvider, child) {
+                  return ChatInputField(
+                    onSendMessage: (text) async {
+                      final error = await chatProvider.sendMessageToBackend(text);
+                      if (error != null && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(error),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    },
+                    onVoiceInput: () {
+                      // TODO: Implement voice input functionality
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Voice input coming soon!'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    isLoading: chatProvider.isTyping,
                   );
                 },
-                isLoading: chatProvider.isTyping,
-              );
-            },
+              ),
+            ],
           ),
+          if (_showHistory) _buildHistoryBackdrop(),
+          _buildHistoryPanel(),
         ],
       ),
     );
@@ -155,17 +162,24 @@ class _ChatScreenState extends State<ChatScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Menu button (for future use)
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.menu,
-                      color: Colors.white,
-                      size: 20,
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showHistory = !_showHistory;
+                      });
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.menu,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                   
@@ -194,20 +208,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   
-                  // Settings button (for future use)
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.settings,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
+                  // Spacer to keep layout symmetrical after removing settings
+                  const SizedBox(width: 40, height: 40),
                 ],
               ),
               
@@ -293,5 +295,118 @@ class _ChatScreenState extends State<ChatScreen> {
     if (timeDifference.inMinutes > 2) return true;
     
     return false;
+  }
+
+  Widget _buildHistoryBackdrop() {
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _showHistory = false;
+          });
+        },
+        child: Container(
+          color: Colors.black.withOpacity(0.3),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryPanel() {
+    final panelWidth = 260.0;
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      top: 0,
+      bottom: 0,
+      left: _showHistory ? 0 : -panelWidth,
+      width: panelWidth,
+      child: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.only(top: 8, bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only(
+              topRight: Radius.circular(16),
+              bottomRight: Radius.circular(16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(2, 0),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: const [
+                    Icon(Icons.history, size: 18, color: Colors.black87),
+                    SizedBox(width: 8),
+                    Text(
+                      'History',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: Consumer<ChatProvider>(
+                  builder: (context, chatProvider, child) {
+                    final entries = chatProvider.messages
+                        .where((m) => m.type == MessageType.user)
+                        .toList()
+                        .reversed
+                        .toList();
+                    if (entries.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'No history yet',
+                          style: TextStyle(color: Colors.black54),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: entries.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final item = entries[index];
+                        final preview = item.text.trim();
+                        return ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          title: Text(
+                            preview.isEmpty ? '(empty)' : preview,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                          onTap: () {
+                            // Close panel on tap; future: could load past conversation state
+                            setState(() {
+                              _showHistory = false;
+                            });
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

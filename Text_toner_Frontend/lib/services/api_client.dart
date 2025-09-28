@@ -20,10 +20,10 @@ class ApiClient {
     return Uri.parse('$normalizedBase$normalizedPath');
   }
 
-  /// Sends the user's message to FastAPI `/chat` and returns the `response` text.
+  /// Sends the user's message to FastAPI `/api/v1/tone/analyze` and returns the improved text.
   ///
-  /// Request: { "message": "user text" }
-  /// Response: { "response": "bot text" }
+  /// Request: { "text": "user text" }
+  /// Response: { "improved_text": "bot text" }
   Future<String> postChat(String message) async {
     final uri = _buildUri(AppConfig.chatEndpointPath);
 
@@ -35,7 +35,7 @@ class ApiClient {
             'Accept': 'application/json',
           },
           body: jsonEncode({
-            'message': message,
+            'text': message,
           }),
         )
         .timeout(const Duration(seconds: 20));
@@ -43,9 +43,10 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final botText = decoded['response']?.toString();
+        // Backend returns ToneAnalysisResponse; use improved_text for reply
+        final botText = decoded['improved_text']?.toString();
         if (botText == null || botText.isEmpty) {
-          throw const FormatException('Missing "response" in server reply');
+          throw const FormatException('Missing "improved_text" in server reply');
         }
         return botText;
       } catch (e) {
