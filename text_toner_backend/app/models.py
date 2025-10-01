@@ -4,14 +4,9 @@ from datetime import datetime
 from enum import Enum
 
 class ToneType(str, Enum):
-    FORMAL = "formal"
-    FRIENDLY = "friendly"
-    APOLOGETIC = "apologetic"
-    ASSERTIVE = "assertive"
-    EMOTIONAL = "emotional"
-    PROFESSIONAL = "professional"
-    CASUAL = "casual"
-    ENTHUSIASTIC = "enthusiastic"
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    NEUTRAL = "neutral"
 
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
@@ -29,18 +24,13 @@ class UserInDB(UserResponse):
     hashed_password: str
 
 class ToneAnalysisRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=1000)
-    user_id: Optional[str] = None
-    context: Optional[str] = None
+    text: str = Field(..., min_length=1, max_length=2000)
+    target_tone: Optional[str] = None
 
 class ToneAnalysisResponse(BaseModel):
     original_text: str
-    detected_tone: ToneType
-    confidence_score: float = Field(..., ge=0.0, le=1.0)
-    tone_breakdown: Dict[str, float]
-    suggestions: List[str]
-    improved_text: str
-    analysis_timestamp: datetime
+    detected_tone: str
+    improvised_text: str
 
 class MessageCreate(BaseModel):
     text: str = Field(..., min_length=1, max_length=1000)

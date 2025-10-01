@@ -104,8 +104,8 @@ class _ChatScreenState extends State<ChatScreen> {
               Consumer<ChatProvider>(
                 builder: (context, chatProvider, child) {
                   return ChatInputField(
-                    onSendMessage: (text) async {
-                      final error = await chatProvider.sendMessageToBackend(text);
+                    onSendMessage: (text, {String? targetTone}) async {
+                      final error = await chatProvider.sendMessageToBackend(text, targetTone: targetTone);
                       if (error != null && mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -239,7 +239,13 @@ class _ChatScreenState extends State<ChatScreen> {
     return GestureDetector(
       onTap: () async {
         final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-        final error = await chatProvider.sendMessageToBackend(label);
+        // Map quick actions to target tones
+        String? targetTone;
+        if (label == 'Make it formal') targetTone = 'formal';
+        else if (label == 'Add clarity') targetTone = 'professional';
+        else if (label == 'Improve tone') targetTone = 'positive';
+        
+        final error = await chatProvider.sendMessageToBackend(label, targetTone: targetTone);
         if (error != null && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

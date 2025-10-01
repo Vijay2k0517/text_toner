@@ -10,8 +10,12 @@ class Settings:
     MONGODB_DATABASE: str = os.getenv("MONGODB_DATABASE", "tone_analyzer_db")
     
     # Hugging Face Model Configuration
-    HUGGINGFACE_MODEL: str = os.getenv("HUGGINGFACE_MODEL", "cardiffnlp/twitter-roberta-base-sentiment-latest")
+    # Using FLAN-T5 XL for better text generation and tone analysis
+    HUGGINGFACE_MODEL: str = os.getenv("HUGGINGFACE_MODEL", "google/flan-t5-xl")
     HUGGINGFACE_TOKEN: str = os.getenv("HUGGINGFACE_TOKEN", "")
+    
+    # Alternative model options (uncomment to use)
+    # HUGGINGFACE_MODEL: str = os.getenv("HUGGINGFACE_MODEL", "EleutherAI/gpt-neo-1.3B")
     
     # API Configuration
     API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
@@ -31,11 +35,11 @@ class Settings:
         "http://localhost:19000",  # React Native Expo
     ]
     
-    # Tone Analysis Configuration
-    SUPPORTED_TONES = [
-        "formal", "friendly", "apologetic", "assertive", 
-        "emotional", "professional", "casual", "enthusiastic"
-    ]
+    # Tone Analysis Configuration - Simplified to general tones
+    SUPPORTED_TONES = ["positive", "negative", "neutral"]
+    
+    # Target tone options for text improvement
+    TARGET_TONES = ["positive", "negative", "neutral", "professional", "friendly", "formal"]
     
     # Model Configuration
     MAX_TEXT_LENGTH: int = 512

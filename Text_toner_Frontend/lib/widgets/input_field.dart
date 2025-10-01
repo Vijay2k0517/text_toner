@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
 class ChatInputField extends StatefulWidget {
-  final Function(String) onSendMessage;
+  final Function(String, {String? targetTone}) onSendMessage;
   final Function()? onVoiceInput;
   final bool isLoading;
 
@@ -26,6 +26,18 @@ class _ChatInputFieldState extends State<ChatInputField>
   late AnimationController _micButtonAnimationController;
   late Animation<double> _sendButtonScaleAnimation;
   late Animation<double> _micButtonScaleAnimation;
+  
+  String? _selectedTargetTone;
+  bool _showToneSelector = false;
+  
+  final List<String> _targetTones = [
+    'positive',
+    'negative', 
+    'neutral',
+    'professional',
+    'friendly',
+    'formal'
+  ];
 
   @override
   void initState() {
@@ -70,7 +82,7 @@ class _ChatInputFieldState extends State<ChatInputField>
   void _handleSendMessage() {
     final text = _controller.text.trim();
     if (text.isNotEmpty && !widget.isLoading) {
-      widget.onSendMessage(text);
+      widget.onSendMessage(text, targetTone: _selectedTargetTone);
       _controller.clear();
     }
   }
@@ -96,8 +108,13 @@ class _ChatInputFieldState extends State<ChatInputField>
         ],
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
           children: [
+            // Target tone selector
+            if (_showToneSelector) _buildToneSelector(),
+            if (_showToneSelector) const SizedBox(height: 12),
+            Row(
+              children: [
             // Voice input button
             if (widget.onVoiceInput != null)
               AnimatedBuilder(
@@ -145,6 +162,34 @@ class _ChatInputFieldState extends State<ChatInputField>
               ),
             
             if (widget.onVoiceInput != null) const SizedBox(width: 12),
+            
+            // Tone selector toggle button
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showToneSelector = !_showToneSelector;
+                });
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _showToneSelector ? AppTheme.primaryBlue : AppTheme.inputFieldBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _showToneSelector ? AppTheme.primaryBlue : AppTheme.inputFieldBorder,
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  Icons.tune,
+                  color: _showToneSelector ? Colors.white : AppTheme.textGrey,
+                  size: 18,
+                ),
+              ),
+            ),
+            
+            const SizedBox(width: 8),
             
             // Text input field
             Expanded(
@@ -253,7 +298,98 @@ class _ChatInputFieldState extends State<ChatInputField>
                 );
               },
             ),
+              ],
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToneSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.inputFieldBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.inputFieldBorder,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.tune,
+            size: 16,
+            color: AppTheme.textGrey,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Target tone: ',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: AppTheme.textGrey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildToneChip('None', null),
+                  const SizedBox(width: 8),
+                  ..._targetTones.map((tone) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _buildToneChip(tone, tone),
+                  )),
+                ],
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _showToneSelector = false;
+              });
+            },
+            child: Icon(
+              Icons.close,
+              size: 16,
+              color: AppTheme.textGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToneChip(String label, String? value) {
+    final isSelected = _selectedTargetTone == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTargetTone = value;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryBlue : AppTheme.inputFieldBorder,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: isSelected ? Colors.white : AppTheme.textGrey,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );

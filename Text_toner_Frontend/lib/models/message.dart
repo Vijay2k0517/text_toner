@@ -4,6 +4,8 @@ class Message {
   final MessageType type;
   final DateTime timestamp;
   final bool isTyping;
+  final String? detectedTone;
+  final String? improvisedText;
 
   Message({
     required this.id,
@@ -11,6 +13,8 @@ class Message {
     required this.type,
     required this.timestamp,
     this.isTyping = false,
+    this.detectedTone,
+    this.improvisedText,
   });
 
   Message copyWith({
@@ -19,6 +23,8 @@ class Message {
     MessageType? type,
     DateTime? timestamp,
     bool? isTyping,
+    String? detectedTone,
+    String? improvisedText,
   }) {
     return Message(
       id: id ?? this.id,
@@ -26,6 +32,8 @@ class Message {
       type: type ?? this.type,
       timestamp: timestamp ?? this.timestamp,
       isTyping: isTyping ?? this.isTyping,
+      detectedTone: detectedTone ?? this.detectedTone,
+      improvisedText: improvisedText ?? this.improvisedText,
     );
   }
 
@@ -36,6 +44,8 @@ class Message {
       'type': type.name,
       'timestamp': timestamp.toIso8601String(),
       'isTyping': isTyping,
+      'detectedTone': detectedTone,
+      'improvisedText': improvisedText,
     };
   }
 
@@ -49,6 +59,8 @@ class Message {
       ),
       timestamp: DateTime.parse(json['timestamp']),
       isTyping: json['isTyping'] ?? false,
+      detectedTone: json['detectedTone'],
+      improvisedText: json['improvisedText'],
     );
   }
 }

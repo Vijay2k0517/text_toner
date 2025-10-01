@@ -152,14 +152,7 @@ async def api_info():
                 "deactivate": "DELETE /api/v1/auth/deactivate"
             },
             "tone_analysis": {
-                "analyze": "POST /api/v1/tone/analyze",
-                "create_message": "POST /api/v1/tone/messages",
-                "get_messages": "GET /api/v1/tone/messages",
-                "get_message": "GET /api/v1/tone/messages/{message_id}",
-                "get_by_tone": "GET /api/v1/tone/messages/tone/{tone}",
-                "search": "GET /api/v1/tone/messages/search",
-                "delete_message": "DELETE /api/v1/tone/messages/{message_id}",
-                "user_stats": "GET /api/v1/tone/stats",
+                "analyze_tone": "POST /api/v1/tone/analyze-tone",
                 "supported_tones": "GET /api/v1/tone/supported-tones"
             },
             "feedback": {

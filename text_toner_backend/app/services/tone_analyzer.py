@@ -1,11 +1,8 @@
 import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from typing import Dict, List, Tuple, Optional
-import numpy as np
-from datetime import datetime
 import logging
 from ..config import settings
-from ..models import ToneType, ToneAnalysisResponse
 
 logger = logging.getLogger(__name__)
 
@@ -16,37 +13,45 @@ class ToneAnalyzer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.is_loaded = False
         
-        # Tone mapping for sentiment analysis
-        self.tone_mapping = {
-            "positive": [ToneType.FRIENDLY, ToneType.ENTHUSIASTIC, ToneType.PROFESSIONAL],
-            "negative": [ToneType.APOLOGETIC, ToneType.EMOTIONAL],
-            "neutral": [ToneType.FORMAL, ToneType.CASUAL, ToneType.ASSERTIVE]
+        # Tone detection prompts for FLAN-T5
+        self.tone_detection_prompts = {
+            "positive": "Classify the sentiment of this text as positive, negative, or neutral. Text: {text}",
+            "negative": "Classify the sentiment of this text as positive, negative, or neutral. Text: {text}",
+            "neutral": "Classify the sentiment of this text as positive, negative, or neutral. Text: {text}"
         }
         
-        # Tone-specific keywords for better classification
-        self.tone_keywords = {
-            ToneType.FORMAL: ["sincerely", "respectfully", "regards", "yours truly", "please", "would you", "could you"],
-            ToneType.FRIENDLY: ["hey", "hi", "hello", "thanks", "thank you", "appreciate", "great", "awesome"],
-            ToneType.APOLOGETIC: ["sorry", "apologize", "apology", "regret", "unfortunately", "my bad", "excuse me"],
-            ToneType.ASSERTIVE: ["must", "should", "need to", "have to", "will", "shall", "definitely", "certainly"],
-            ToneType.EMOTIONAL: ["feel", "feeling", "upset", "happy", "sad", "angry", "excited", "worried"],
-            ToneType.PROFESSIONAL: ["business", "professional", "corporate", "industry", "expertise", "experience"],
-            ToneType.CASUAL: ["cool", "awesome", "great", "nice", "yeah", "sure", "okay", "no problem"],
-            ToneType.ENTHUSIASTIC: ["amazing", "fantastic", "incredible", "wonderful", "excellent", "brilliant", "outstanding"]
+        # Text improvement prompts based on target tone
+        self.improvement_prompts = {
+            "positive": "Rewrite this text to make it more positive and upbeat while preserving the original meaning: {text}",
+            "negative": "Rewrite this text to make it more negative or critical while preserving the original meaning: {text}",
+            "neutral": "Rewrite this text to make it more neutral and objective while preserving the original meaning: {text}",
+            "professional": "Rewrite this text to make it more professional and formal while preserving the original meaning: {text}",
+            "friendly": "Rewrite this text to make it more friendly and warm while preserving the original meaning: {text}",
+            "formal": "Rewrite this text to make it more formal and structured while preserving the original meaning: {text}"
         }
     
     async def load_model(self):
-        """Load the Hugging Face model and tokenizer"""
+        """Load the FLAN-T5 XL model and tokenizer"""
         try:
             logger.info(f"Loading model: {settings.HUGGINGFACE_MODEL}")
             logger.info(f"Using device: {self.device}")
             
-            self.tokenizer = AutoTokenizer.from_pretrained(settings.HUGGINGFACE_MODEL)
-            self.model = AutoModelForSequenceClassification.from_pretrained(settings.HUGGINGFACE_MODEL)
+            # Load tokenizer and model
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                settings.HUGGINGFACE_MODEL,
+                use_fast=True
+            )
             
-            self.model.to(self.device)
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(
+                settings.HUGGINGFACE_MODEL,
+                torch_dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
+                device_map="auto" if self.device.type == "cuda" else None
+            )
+            
+            if self.device.type == "cpu":
+                self.model.to(self.device)
+            
             self.model.eval()
-            
             self.is_loaded = True
             logger.info("Model loaded successfully")
             
@@ -64,172 +69,129 @@ class ToneAnalyzer:
         text = text.strip()
         return text
     
-    def _analyze_sentiment(self, text: str) -> Tuple[str, float]:
-        """Analyze sentiment using the loaded model"""
+    def _detect_tone(self, text: str) -> str:
+        """Detect the general tone (positive, negative, neutral) of the text"""
         if not self.is_loaded:
             raise Exception("Model not loaded")
         
-        inputs = self.tokenizer(
-            text,
-            return_tensors="pt",
-            truncation=True,
-            max_length=settings.MAX_TEXT_LENGTH,
-            padding=True
-        )
-        
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-            probabilities = torch.softmax(outputs.logits, dim=1)
-            predicted_class = torch.argmax(probabilities, dim=1).item()
-            confidence = probabilities[0][predicted_class].item()
-        
-        # Map model output to sentiment
-        sentiment_labels = ["negative", "neutral", "positive"]
-        sentiment = sentiment_labels[predicted_class]
-        
-        return sentiment, confidence
-    
-    def _analyze_tone_keywords(self, text: str) -> Dict[ToneType, float]:
-        """Analyze text for tone-specific keywords"""
-        text_lower = text.lower()
-        tone_scores = {}
-        
-        for tone, keywords in self.tone_keywords.items():
-            score = 0
-            for keyword in keywords:
-                if keyword in text_lower:
-                    score += 1
-            tone_scores[tone] = score / len(keywords) if keywords else 0
-        
-        return tone_scores
-    
-    def _generate_suggestions(self, text: str, detected_tone: ToneType) -> List[str]:
-        """Generate tone improvement suggestions"""
-        suggestions = []
-        
-        if detected_tone == ToneType.FORMAL:
-            suggestions.extend([
-                "Consider using more conversational language for a friendlier tone",
-                "Try adding personal pronouns like 'I' and 'you' to make it more engaging",
-                "Include a greeting or closing to make it more personable"
-            ])
-        elif detected_tone == ToneType.ASSERTIVE:
-            suggestions.extend([
-                "Consider softening your language with phrases like 'I think' or 'perhaps'",
-                "Try using questions instead of statements to be more collaborative",
-                "Add context or reasoning to make your point more persuasive"
-            ])
-        elif detected_tone == ToneType.EMOTIONAL:
-            suggestions.extend([
-                "Consider using more neutral language to maintain professionalism",
-                "Try focusing on facts and solutions rather than feelings",
-                "Use 'I feel' statements to express emotions constructively"
-            ])
-        elif detected_tone == ToneType.CASUAL:
-            suggestions.extend([
-                "Consider using more formal language for professional contexts",
-                "Try using complete sentences and proper punctuation",
-                "Add specific details to make your message more informative"
-            ])
-        
-        # Add general suggestions
-        suggestions.extend([
-            "Consider your audience when choosing your tone",
-            "Make sure your message is clear and actionable",
-            "Proofread for grammar and spelling"
-        ])
-        
-        return suggestions[:3]  # Return top 3 suggestions
-    
-    def _improve_text(self, text: str, detected_tone: ToneType, target_tone: Optional[ToneType] = None) -> str:
-        """Generate an improved version of the text"""
-        if target_tone is None:
-            # Default to professional tone
-            target_tone = ToneType.PROFESSIONAL
-        
-        improved_text = text
-        
-        # Simple improvements based on tone
-        if detected_tone == ToneType.CASUAL and target_tone == ToneType.PROFESSIONAL:
-            # Replace casual words with professional ones
-            replacements = {
-                "hey": "Hello",
-                "hi": "Hello",
-                "thanks": "Thank you",
-                "cool": "excellent",
-                "awesome": "outstanding",
-                "yeah": "yes",
-                "okay": "acceptable"
-            }
+        try:
+            # Use a simple prompt for tone detection
+            prompt = f"Classify the sentiment of this text as positive, negative, or neutral. Text: {text}"
             
-            for casual, professional in replacements.items():
-                improved_text = improved_text.replace(casual, professional)
-        
-        elif detected_tone == ToneType.ASSERTIVE and target_tone == ToneType.FRIENDLY:
-            # Soften assertive language
-            replacements = {
-                "must": "should consider",
-                "have to": "might want to",
-                "need to": "could benefit from",
-                "will": "would like to"
-            }
+            inputs = self.tokenizer(
+                prompt,
+                return_tensors="pt",
+                truncation=True,
+                max_length=512,
+                padding=True
+            )
             
-            for assertive, friendly in replacements.items():
-                improved_text = improved_text.replace(assertive, friendly)
-        
-        return improved_text
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_length=50,
+                    num_beams=2,
+                    early_stopping=True,
+                    do_sample=False
+                )
+            
+            # Decode the output
+            result = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            
+            # Extract tone from result
+            result_lower = result.lower()
+            if "positive" in result_lower:
+                return "positive"
+            elif "negative" in result_lower:
+                return "negative"
+            else:
+                return "neutral"
+                
+        except Exception as e:
+            logger.error(f"Error in tone detection: {e}")
+            # Fallback to neutral if detection fails
+            return "neutral"
     
-    async def analyze_tone(self, text: str) -> ToneAnalysisResponse:
-        """Main method to analyze text tone"""
+    def _improve_text(self, text: str, target_tone: Optional[str] = None) -> str:
+        """Improve text based on target tone using FLAN-T5"""
+        if not self.is_loaded:
+            raise Exception("Model not loaded")
+        
+        try:
+            # Use target tone if provided, otherwise use neutral
+            tone = target_tone if target_tone and target_tone in self.improvement_prompts else "neutral"
+            
+            prompt = self.improvement_prompts[tone].format(text=text)
+            
+            inputs = self.tokenizer(
+                prompt,
+                return_tensors="pt",
+                truncation=True,
+                max_length=512,
+                padding=True
+            )
+            
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_length=min(len(text) + 100, 512),
+                    num_beams=3,
+                    early_stopping=True,
+                    do_sample=True,
+                    temperature=0.7,
+                    top_p=0.9
+                )
+            
+            # Decode the output
+            improved_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            
+            # Clean up the result
+            improved_text = improved_text.strip()
+            
+            # If the model didn't generate a good response, return original text
+            if len(improved_text) < len(text) * 0.5 or improved_text.lower() == text.lower():
+                return text
+            
+            return improved_text
+            
+        except Exception as e:
+            logger.error(f"Error in text improvement: {e}")
+            # Return original text if improvement fails
+            return text
+    
+    async def analyze_tone(self, text: str, target_tone: Optional[str] = None) -> Dict[str, str]:
+        """Main method to analyze text tone and improve it"""
         if not self.is_loaded:
             await self.load_model()
         
         # Preprocess text
         processed_text = self._preprocess_text(text)
         
-        # Analyze sentiment
-        sentiment, sentiment_confidence = self._analyze_sentiment(processed_text)
-        
-        # Analyze tone keywords
-        tone_scores = self._analyze_tone_keywords(processed_text)
-        
-        # Combine sentiment and keyword analysis
-        sentiment_tone_candidates = self.tone_mapping.get(sentiment, [ToneType.CASUAL])
-        
-        # Find the best tone match
-        best_tone = ToneType.CASUAL
-        best_score = 0
-        
-        for tone in sentiment_tone_candidates:
-            score = tone_scores.get(tone, 0) * sentiment_confidence
-            if score > best_score:
-                best_score = score
-                best_tone = tone
-        
-        # If no strong keyword match, use sentiment-based tone
-        if best_score < settings.CONFIDENCE_THRESHOLD:
-            best_tone = sentiment_tone_candidates[0]
-            best_score = sentiment_confidence
-        
-        # Generate suggestions and improved text
-        suggestions = self._generate_suggestions(processed_text, best_tone)
-        improved_text = self._improve_text(processed_text, best_tone)
-        
-        # Create tone breakdown
-        tone_breakdown = {tone.value: score for tone, score in tone_scores.items()}
-        tone_breakdown["sentiment"] = sentiment_confidence
-        
-        return ToneAnalysisResponse(
-            original_text=text,
-            detected_tone=best_tone,
-            confidence_score=best_score,
-            tone_breakdown=tone_breakdown,
-            suggestions=suggestions,
-            improved_text=improved_text,
-            analysis_timestamp=datetime.utcnow()
-        )
+        try:
+            # Detect tone
+            detected_tone = self._detect_tone(processed_text)
+            
+            # Improve text
+            improved_text = self._improve_text(processed_text, target_tone)
+            
+            return {
+                "original_text": text,
+                "detected_tone": detected_tone,
+                "improvised_text": improved_text
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in tone analysis: {e}")
+            # Return fallback response
+            return {
+                "original_text": text,
+                "detected_tone": "neutral",
+                "improvised_text": text
+            }
 
 # Global tone analyzer instance
 tone_analyzer = ToneAnalyzer()

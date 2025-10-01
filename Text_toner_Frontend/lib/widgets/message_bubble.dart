@@ -71,17 +71,8 @@ class MessageBubble extends StatelessWidget {
                         if (message.isTyping) ...[
                           _buildTypingIndicator(),
                         ] else ...[
-                          Text(
-                            message.text,
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              color: message.type == MessageType.user
-                                  ? AppTheme.userMessageText
-                                  : AppTheme.botMessageText,
-                              height: 1.4,
-                            ),
-                          ),
+                          // Display message text with markdown-like formatting
+                          _buildMessageContent(),
                           const SizedBox(height: 4),
                           Text(
                             _formatTime(message.timestamp),
@@ -190,6 +181,123 @@ class MessageBubble extends StatelessWidget {
         );
       },
     );
+  }
+
+  Widget _buildMessageContent() {
+    if (message.type == MessageType.user) {
+      // Simple text for user messages
+      return Text(
+        message.text,
+        style: GoogleFonts.poppins(
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          color: AppTheme.userMessageText,
+          height: 1.4,
+        ),
+      );
+    } else {
+      // Enhanced formatting for bot messages with tone analysis
+      return _buildFormattedBotMessage();
+    }
+  }
+
+  Widget _buildFormattedBotMessage() {
+    final lines = message.text.split('\n');
+    final widgets = <Widget>[];
+    
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+      
+      if (line.startsWith('**') && line.endsWith('**')) {
+        // Bold text (headers)
+        widgets.add(
+          Text(
+            line.substring(2, line.length - 2),
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.botMessageText,
+              height: 1.3,
+            ),
+          ),
+        );
+      } else if (line.startsWith('*') && line.endsWith('*')) {
+        // Italic text (notes)
+        widgets.add(
+          Text(
+            line.substring(1, line.length - 1),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: AppTheme.botMessageText.withOpacity(0.8),
+              fontStyle: FontStyle.italic,
+              height: 1.3,
+            ),
+          ),
+        );
+      } else if (line.contains('😊') || line.contains('😔') || line.contains('😐')) {
+        // Tone indicators
+        widgets.add(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _getToneColor(line).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _getToneColor(line).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              line,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: _getToneColor(line),
+                height: 1.3,
+              ),
+            ),
+          ),
+        );
+      } else {
+        // Regular text
+        widgets.add(
+          Text(
+            line,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: AppTheme.botMessageText,
+              height: 1.4,
+            ),
+          ),
+        );
+      }
+      
+      if (i < lines.length - 1) {
+        widgets.add(const SizedBox(height: 4));
+      }
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+
+  Color _getToneColor(String line) {
+    if (line.contains('😊') || line.contains('Positive')) {
+      return Colors.green;
+    } else if (line.contains('😔') || line.contains('Negative')) {
+      return Colors.red;
+    } else if (line.contains('😐') || line.contains('Neutral')) {
+      return Colors.blue;
+    }
+    return AppTheme.primaryBlue;
   }
 
   String _formatTime(DateTime timestamp) {

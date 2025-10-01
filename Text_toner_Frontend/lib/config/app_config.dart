@@ -11,7 +11,7 @@ class AppConfig {
     'API_BASE_URL',
     defaultValue: 'http://10.0.2.2:8000', // Android emulator localhost; use http://localhost:8000 for web/desktop
   );
-  static const String chatEndpointPath = '/api/v1/tone/analyze';
+  static const String chatEndpointPath = '/api/v1/tone/analyze-tone';
   
   // Animation durations
   static const Duration messageAnimationDuration = Duration(milliseconds: 600);
