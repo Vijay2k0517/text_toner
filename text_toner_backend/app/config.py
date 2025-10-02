@@ -35,11 +35,8 @@ class Settings:
         "http://localhost:19000",  # React Native Expo
     ]
     
-    # Tone Analysis Configuration - Simplified to general tones
-    SUPPORTED_TONES = ["positive", "negative", "neutral"]
-    
-    # Target tone options for text improvement
-    TARGET_TONES = ["positive", "negative", "neutral", "professional", "friendly", "formal"]
+    # Tone Analysis Configuration - Updated to emotional tones
+    SUPPORTED_TONES = ["sad", "angry", "friendly"]
     
     # Model Configuration
     MAX_TEXT_LENGTH: int = 512

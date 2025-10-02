@@ -2,6 +2,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from typing import Dict, List, Tuple, Optional
 import logging
+import re
 from ..config import settings
 
 logger = logging.getLogger(__name__)
@@ -13,21 +14,14 @@ class ToneAnalyzer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.is_loaded = False
         
-        # Tone detection prompts for FLAN-T5
-        self.tone_detection_prompts = {
-            "positive": "Classify the sentiment of this text as positive, negative, or neutral. Text: {text}",
-            "negative": "Classify the sentiment of this text as positive, negative, or neutral. Text: {text}",
-            "neutral": "Classify the sentiment of this text as positive, negative, or neutral. Text: {text}"
-        }
+        # Updated tone detection prompt for sad/angry/friendly classification
+        self.tone_detection_prompt = "Classify the emotional tone of this text as either 'sad', 'angry', or 'friendly'. Consider the overall emotional sentiment and word choice. Text: {text}"
         
-        # Text improvement prompts based on target tone
+        # Text improvement prompts - simplified to just improve while maintaining tone
         self.improvement_prompts = {
-            "positive": "Rewrite this text to make it more positive and upbeat while preserving the original meaning: {text}",
-            "negative": "Rewrite this text to make it more negative or critical while preserving the original meaning: {text}",
-            "neutral": "Rewrite this text to make it more neutral and objective while preserving the original meaning: {text}",
-            "professional": "Rewrite this text to make it more professional and formal while preserving the original meaning: {text}",
-            "friendly": "Rewrite this text to make it more friendly and warm while preserving the original meaning: {text}",
-            "formal": "Rewrite this text to make it more formal and structured while preserving the original meaning: {text}"
+            "sad": "Improve the grammar, clarity, and flow of this text while keeping its sad emotional tone: {text}",
+            "angry": "Improve the grammar, clarity, and flow of this text while keeping its angry emotional tone: {text}",
+            "friendly": "Improve the grammar, clarity, and flow of this text while keeping its friendly emotional tone: {text}"
         }
     
     async def load_model(self):
@@ -70,13 +64,13 @@ class ToneAnalyzer:
         return text
     
     def _detect_tone(self, text: str) -> str:
-        """Detect the general tone (positive, negative, neutral) of the text"""
+        """Detect the emotional tone (sad, angry, friendly) of the text"""
         if not self.is_loaded:
             raise Exception("Model not loaded")
         
         try:
-            # Use a simple prompt for tone detection
-            prompt = f"Classify the sentiment of this text as positive, negative, or neutral. Text: {text}"
+            # Use updated prompt for sad/angry/friendly detection
+            prompt = self.tone_detection_prompt.format(text=text)
             
             inputs = self.tokenizer(
                 prompt,
@@ -100,30 +94,39 @@ class ToneAnalyzer:
             # Decode the output
             result = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            # Extract tone from result
+            # Extract tone from result - look for sad, angry, or friendly
             result_lower = result.lower()
-            if "positive" in result_lower:
-                return "positive"
-            elif "negative" in result_lower:
-                return "negative"
+            if "sad" in result_lower:
+                return "sad"
+            elif "angry" in result_lower:
+                return "angry"
+            elif "friendly" in result_lower:
+                return "friendly"
             else:
-                return "neutral"
+                # Fallback logic based on common patterns
+                if any(word in text.lower() for word in ['sorry', 'disappointed', 'upset', 'hurt', 'cry', 'tears']):
+                    return "sad"
+                elif any(word in text.lower() for word in ['angry', 'mad', 'furious', 'hate', 'stupid', 'damn']):
+                    return "angry"
+                else:
+                    return "friendly"
                 
         except Exception as e:
             logger.error(f"Error in tone detection: {e}")
-            # Fallback to neutral if detection fails
-            return "neutral"
+            # Fallback to friendly if detection fails
+            return "friendly"
     
-    def _improve_text(self, text: str, target_tone: Optional[str] = None) -> str:
-        """Improve text based on target tone using FLAN-T5"""
+    def _improve_text(self, text: str, detected_tone: str) -> str:
+        """Improve text while maintaining the detected tone"""
         if not self.is_loaded:
             raise Exception("Model not loaded")
         
         try:
-            # Use target tone if provided, otherwise use neutral
-            tone = target_tone if target_tone and target_tone in self.improvement_prompts else "neutral"
+            # Use the detected tone for improvement
+            if detected_tone not in self.improvement_prompts:
+                detected_tone = "friendly"  # Default fallback
             
-            prompt = self.improvement_prompts[tone].format(text=text)
+            prompt = self.improvement_prompts[detected_tone].format(text=text)
             
             inputs = self.tokenizer(
                 prompt,
@@ -163,7 +166,7 @@ class ToneAnalyzer:
             # Return original text if improvement fails
             return text
     
-    async def analyze_tone(self, text: str, target_tone: Optional[str] = None) -> Dict[str, str]:
+    async def analyze_tone(self, text: str) -> Dict[str, str]:
         """Main method to analyze text tone and improve it"""
         if not self.is_loaded:
             await self.load_model()
@@ -175,22 +178,20 @@ class ToneAnalyzer:
             # Detect tone
             detected_tone = self._detect_tone(processed_text)
             
-            # Improve text
-            improved_text = self._improve_text(processed_text, target_tone)
+            # Improve text while maintaining the detected tone
+            improved_text = self._improve_text(processed_text, detected_tone)
             
             return {
-                "original_text": text,
-                "detected_tone": detected_tone,
-                "improvised_text": improved_text
+                "tone": detected_tone,
+                "improved_text": improved_text
             }
             
         except Exception as e:
             logger.error(f"Error in tone analysis: {e}")
             # Return fallback response
             return {
-                "original_text": text,
-                "detected_tone": "neutral",
-                "improvised_text": text
+                "tone": "friendly",
+                "improved_text": text
             }
 
 # Global tone analyzer instance

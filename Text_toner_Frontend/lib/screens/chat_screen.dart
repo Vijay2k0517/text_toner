@@ -104,8 +104,8 @@ class _ChatScreenState extends State<ChatScreen> {
               Consumer<ChatProvider>(
                 builder: (context, chatProvider, child) {
                   return ChatInputField(
-                    onSendMessage: (text, {String? targetTone}) async {
-                      final error = await chatProvider.sendMessageToBackend(text, targetTone: targetTone);
+                    onSendMessage: (text) async {
+                      final error = await chatProvider.sendMessageToBackend(text);
                       if (error != null && mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -213,21 +213,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
               
-              const SizedBox(height: 16),
-              
-              // Quick action chips
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildQuickActionChip('Make it formal', Icons.business),
-                    const SizedBox(width: 8),
-                    _buildQuickActionChip('Add clarity', Icons.text_snippet),
-                    const SizedBox(width: 8),
-                    _buildQuickActionChip('Improve tone', Icons.tune),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
@@ -235,58 +220,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildQuickActionChip(String label, IconData icon) {
-    return GestureDetector(
-      onTap: () async {
-        final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-        // Map quick actions to target tones
-        String? targetTone;
-        if (label == 'Make it formal') targetTone = 'formal';
-        else if (label == 'Add clarity') targetTone = 'professional';
-        else if (label == 'Improve tone') targetTone = 'positive';
-        
-        final error = await chatProvider.sendMessageToBackend(label, targetTone: targetTone);
-        if (error != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: Colors.white,
-              size: 14,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   bool _shouldShowAvatar(List<Message> messages, int index) {
     if (index == 0) return true;

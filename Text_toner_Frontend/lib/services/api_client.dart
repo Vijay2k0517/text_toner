@@ -22,9 +22,9 @@ class ApiClient {
 
   /// Sends the user's message to FastAPI `/api/v1/tone/analyze-tone` and returns the tone analysis.
   ///
-  /// Request: { "text": "user text", "target_tone": "optional_target" }
-  /// Response: { "original_text": "...", "detected_tone": "...", "improvised_text": "..." }
-  Future<Map<String, String>> analyzeTone(String message, {String? targetTone}) async {
+  /// Request: { "text": "user text" }
+  /// Response: { "tone": "...", "improved_text": "..." }
+  Future<Map<String, String>> analyzeTone(String message) async {
     final uri = _buildUri('/api/v1/tone/analyze-tone');
 
     final response = await _http
@@ -36,7 +36,6 @@ class ApiClient {
           },
           body: jsonEncode({
             'text': message,
-            if (targetTone != null) 'target_tone': targetTone,
           }),
         )
         .timeout(const Duration(seconds: 30));
@@ -45,9 +44,8 @@ class ApiClient {
       try {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return {
-          'original_text': decoded['original_text']?.toString() ?? message,
-          'detected_tone': decoded['detected_tone']?.toString() ?? 'neutral',
-          'improvised_text': decoded['improvised_text']?.toString() ?? message,
+          'tone': decoded['tone']?.toString() ?? 'friendly',
+          'improved_text': decoded['improved_text']?.toString() ?? message,
         };
       } catch (e) {
         throw Exception('Failed to parse server response: $e');

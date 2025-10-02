@@ -4,9 +4,9 @@ from datetime import datetime
 from enum import Enum
 
 class ToneType(str, Enum):
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-    NEUTRAL = "neutral"
+    SAD = "sad"
+    ANGRY = "angry"
+    FRIENDLY = "friendly"
 
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
@@ -25,12 +25,10 @@ class UserInDB(UserResponse):
 
 class ToneAnalysisRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
-    target_tone: Optional[str] = None
 
 class ToneAnalysisResponse(BaseModel):
-    original_text: str
-    detected_tone: str
-    improvised_text: str
+    tone: str
+    improved_text: str
 
 class MessageCreate(BaseModel):
     text: str = Field(..., min_length=1, max_length=1000)

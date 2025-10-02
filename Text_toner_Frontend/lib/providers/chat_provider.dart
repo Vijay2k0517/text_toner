@@ -27,14 +27,14 @@ class ChatProvider extends ChangeNotifier {
     addMessage(message);
   }
 
-  void addBotMessage(String text, {String? detectedTone, String? improvisedText}) {
+  void addBotMessage(String text, {String? detectedTone, String? improvedText}) {
     final message = Message(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       text: text,
       timestamp: DateTime.now(),
       type: MessageType.bot,
       detectedTone: detectedTone,
-      improvisedText: improvisedText,
+      improvedText: improvedText,
     );
     addMessage(message);
   }
@@ -46,7 +46,7 @@ class ChatProvider extends ChangeNotifier {
 
   /// Sends the user message to the backend and appends the tone analysis response.
   /// Returns null on success, or an error message string on failure.
-  Future<String?> sendMessageToBackend(String userMessage, {String? targetTone}) async {
+  Future<String?> sendMessageToBackend(String userMessage) async {
     // Add user message to UI immediately
     addUserMessage(userMessage);
 
@@ -54,13 +54,13 @@ class ChatProvider extends ChangeNotifier {
     setTyping(true);
 
     try {
-      final analysis = await _apiClient.analyzeTone(userMessage, targetTone: targetTone);
+      final analysis = await _apiClient.analyzeTone(userMessage);
       
       // Create a comprehensive response message
-      final responseText = _formatToneAnalysisResponse(analysis);
+      final responseText = _formatToneAnalysisResponse(analysis, userMessage);
       addBotMessage(responseText, 
-        detectedTone: analysis['detected_tone'],
-        improvisedText: analysis['improvised_text']
+        detectedTone: analysis['tone'],
+        improvedText: analysis['improved_text']
       );
       return null;
     } catch (e) {
@@ -72,28 +72,29 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  String _formatToneAnalysisResponse(Map<String, String> analysis) {
-    final detectedTone = analysis['detected_tone'] ?? 'neutral';
-    final improvisedText = analysis['improvised_text'] ?? analysis['original_text'] ?? '';
+  String _formatToneAnalysisResponse(Map<String, String> analysis, String originalText) {
+    final detectedTone = analysis['tone'] ?? 'friendly';
+    final improvedText = analysis['improved_text'] ?? originalText;
     
-    return '''🎯 **Tone Analysis Complete!**
+    return '''🎯 **Analysis Complete!**
+
+**Original Text:**
+$originalText
 
 **Detected Tone:** ${_formatTone(detectedTone)}
 
 **Improved Text:**
-$improvisedText
-
-*The text has been enhanced while preserving your original meaning.*''';
+$improvedText''';
   }
 
   String _formatTone(String tone) {
     switch (tone.toLowerCase()) {
-      case 'positive':
-        return '😊 Positive';
-      case 'negative':
-        return '😔 Negative';
-      case 'neutral':
-        return '😐 Neutral';
+      case 'sad':
+        return '😢 Sad';
+      case 'angry':
+        return '😠 Angry';
+      case 'friendly':
+        return '😊 Friendly';
       default:
         return '🤔 $tone';
     }

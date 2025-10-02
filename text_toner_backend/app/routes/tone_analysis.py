@@ -15,36 +15,26 @@ async def analyze_tone(request: ToneAnalysisRequest):
     
     Input:
     {
-        "text": "<user_input_text>",
-        "target_tone": "<optional_desired_tone>"
+        "text": "<user_input_text>"
     }
     
     Output:
     {
-        "original_text": "<user_input_text>",
-        "detected_tone": "<general_tone>",
-        "improvised_text": "<text_with_improved_tone>"
+        "tone": "<detected_tone>",
+        "improved_text": "<text_with_improved_grammar_and_flow>"
     }
     """
     try:
         logger.info(f"Analyzing tone for text: {request.text[:100]}...")
         
-        # Validate target tone if provided
-        if request.target_tone and request.target_tone not in ["positive", "negative", "neutral", "professional", "friendly", "formal"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid target tone. Must be one of: positive, negative, neutral, professional, friendly, formal"
-            )
-        
         # Analyze tone and improve text
-        result = await tone_analyzer.analyze_tone(request.text, request.target_tone)
+        result = await tone_analyzer.analyze_tone(request.text)
         
-        logger.info(f"Analysis completed. Detected tone: {result['detected_tone']}")
+        logger.info(f"Analysis completed. Detected tone: {result['tone']}")
         
         return ToneAnalysisResponse(
-            original_text=result["original_text"],
-            detected_tone=result["detected_tone"],
-            improvised_text=result["improvised_text"]
+            tone=result["tone"],
+            improved_text=result["improved_text"]
         )
         
     except HTTPException:
@@ -63,6 +53,5 @@ async def get_supported_tones():
     
     return {
         "supported_tones": settings.SUPPORTED_TONES,
-        "target_tones": settings.TARGET_TONES,
-        "description": "Available tone types for analysis and improvement"
+        "description": "Available tone types for analysis: sad, angry, friendly"
     }
